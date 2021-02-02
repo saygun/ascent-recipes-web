@@ -1,0 +1,154 @@
+<html lang="en" data-ember-extension="1">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#000000">
+        <title>Recipe Puppy</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.min.js" integrity="sha384-pQQkAEnwaBkjpqZ8RU1fF1AKtTcHJwFl3pblpTlHXybJjHpMYo79HY3hIi4NKxyj" crossorigin="anonymous"></script>
+        <script src="https://kit.fontawesome.com/381e7de378.js" crossorigin="anonymous"></script>
+        <style>
+            .thumnail-cell {
+                width: 107px;
+                height: 80px;
+                text-align: center;
+            }
+
+            .recipe-cell {
+                display: flex;
+                align-items: center;
+            }
+        </style>
+    </head>
+
+    <body>
+        <nav class="navbar navbar-expand-lg navbar-light bg-light">
+            <a class="navbar-brand" href="#">Recipe Finder</a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+                aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav mr-auto">
+                    <li class="nav-item active">
+                        <a class="nav-link" href="#">Home</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <div class="container">
+            <div class="row">
+                <div class="input-group mt-5 ps-0 pe-0">
+                    <input type="text" class="form-control" id="search-input" placeholder="Search term">
+                    <button class="btn btn-outline-secondary" type="button" id="search">Search</button>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <table class="table table-striped">
+                    <tbody id="recipes">
+
+                    </tbody>
+                </table>
+                <div class="fa-3x text-center invisible" id="loading-indicator">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </div>
+                
+            </div>
+        </div>
+        <script>
+            // https://davidwalsh.name/javascript-debounce-function
+            function debounce(func, wait, immediate) {
+                let timeout;
+                return function () {
+                    const context = this, args = arguments;
+                    const later = function () {
+                        timeout = null;
+                        if (!immediate) func.apply(context, args);
+                    };
+
+                    const callNow = immediate && !timeout;
+                    clearTimeout(timeout);
+                    timeout = setTimeout(later, wait);
+                    if (callNow) func.apply(context, args);
+                };
+            };
+
+            let previousController;
+            const fetchRecipes = async (event) => {
+                const allowedCode = [8, 13, 32, 44, 45, 46, 95];
+                const { charCode } = event;
+                const query = event.target.value;
+                if (previousController) { previousController.abort(); }
+
+                previousController = new AbortController();
+                let { signal } = previousController;
+                
+                const indicator = document.getElementById('loading-indicator');
+                const recipeTable = document.getElementById('recipes');
+                recipeTable.innerHTML = '';
+                try {
+                    indicator.classList.remove('invisible');
+                    const res = await fetch(`https://ascent-recipe-puppy.herokuapp.com/recipes?q=${query}`, { signal });
+                    const result = await res.json();
+
+                    if (result.data.length === 0) {
+                        recipeTable.innerText = 'No results to show';
+                    } else {
+                        result.data.forEach((recipe) => recipeTable.append(insertRecipeRow(recipe)));
+                    }
+                    
+                } catch (err) {
+                    recipeTable.innerText = err.message;
+                } finally {
+                    indicator.classList.add('invisible');
+                }
+            }
+
+            const insertRecipeRow = (recipe) => {
+                const row = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.className = 'recipe-cell';
+
+                const thumbnailDiv = document.createElement('div');
+                thumbnailDiv.className = 'thumnail-cell';
+
+                if (recipe.attributes.thumbnail) {
+                    const img = document.createElement('img');
+                    img.src = recipe.attributes.thumbnail;
+                    thumbnailDiv.append(img);
+                } else {
+                    const icon = document.createElement('i');
+                    icon.className = 'fas fa-hamburger fa-5x';
+                    thumbnailDiv.append(icon);
+                }
+                cell.append(thumbnailDiv);
+
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'ms-3';
+
+                const title = document.createElement('a');
+                title.text = recipe.attributes.title;
+                title.href = recipe.attributes.href;
+                title.target = '_blank';
+                titleDiv.append(title);
+
+                const ingredients = document.createElement('p');
+                ingredients.className = 'mb-0 fst-italic';
+                ingredients.innerText = recipe.attributes.ingredients;
+                titleDiv.append(ingredients);
+
+                cell.append(titleDiv);
+
+                row.append(cell);
+                return row;
+            }
+
+            const searchInput = document.getElementById('search-input');
+            searchInput.addEventListener('input', debounce(fetchRecipes, 500));
+        </script>
+
+    </body>
+
+</html>
